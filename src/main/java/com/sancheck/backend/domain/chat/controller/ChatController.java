@@ -23,16 +23,10 @@ public class ChatController {
 
         System.out.println("임시 유저 [" + userId + "]의 질문이 도착했습니다: " + request.getContent());
 
-        //ChatResponseDto response = chatService.processRagChat(userId, request);
+        ChatResponseDto response = chatService.processRagChat(userId, request);
 
-        //[임시]
-        ChatResponseDto tempResponse = ChatResponseDto.builder()
-            .answer("ai server가 없으므로 대신 답변입니다.질문: " + request.getContent())
-            .senderType("ASSISTANT")
-            .createdAt("2026-05-10 15:30:00")
-            .build();
 
-        return ResponseEntity.ok(tempResponse);
+        return ResponseEntity.ok(response);
 
     }
 }
