@@ -12,7 +12,10 @@ import org.springframework.data.mongodb.core.mapping.Field;
 public class ChatMessage {
 
     @Id
+    @Field("message_id")
     private String id;
+
+    private String userId;
 
     @Field("sender_type")
     private String senderType;
