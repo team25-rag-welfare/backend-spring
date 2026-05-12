@@ -2,6 +2,8 @@ package com.sancheck.backend.domain.user.dto.response;
 
 import com.sancheck.backend.domain.user.entity.User;
 import lombok.Getter;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 @Getter
 public class UserResponseDto {
@@ -19,6 +21,7 @@ public class UserResponseDto {
   private Integer incomeLevel;
   private Boolean isHomeless;
 
+
   public UserResponseDto(User user) {
     this.userId = user.getId();
     this.userName = user.getUserName();
@@ -29,9 +32,12 @@ public class UserResponseDto {
     this.isMultibirth = user.getIsMultibirth();
     this.isForeigner = user.getIsForeigner();
     this.residenceMonths = user.getResidenceMonths();
-    this.pregnancyWeeks = user.getPregnancyWeeks();
     this.infantMonths = user.getInfantMonths();
     this.incomeLevel = user.getIncomeLevel();
     this.isHomeless = user.getIsHomeless();
+    if (user.getDueDate() != null) {
+      long daysUntilDue = ChronoUnit.DAYS.between(LocalDate.now(), user.getDueDate());
+      this.pregnancyWeeks = (int) ((280 - daysUntilDue) / 7);
+    }
   }
 }

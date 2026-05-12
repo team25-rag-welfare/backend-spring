@@ -7,6 +7,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import java.time.LocalDateTime;
 import com.sancheck.backend.global.common.BaseEntity;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "users")
@@ -62,7 +63,7 @@ public class User extends BaseEntity {
     private Integer residenceMonths; // 거주 개월 수
 
     @Column
-    private Integer pregnancyWeeks; // 임신 주차
+    private LocalDate dueDate; // 임신 주차
 
     @Column
     private Integer infantMonths; // 영유아 개월 수
@@ -79,7 +80,7 @@ public class User extends BaseEntity {
         String district, Integer childCount, Boolean isDeleted,
         LocalDateTime termsAgreedAt, LocalDateTime createdAt,
         Boolean isMultibirth, Boolean isForeigner, LocalDateTime deletedAt,
-        Integer residenceMonths, Integer pregnancyWeeks, Integer infantMonths,
+        Integer residenceMonths,LocalDate dueDate, Integer infantMonths,
         Integer incomeLevel, Boolean isHomeless) {
         this.kakaoId = kakaoId;
         this.email = email;
@@ -95,7 +96,7 @@ public class User extends BaseEntity {
         this.isForeigner = isForeigner;
         this.deletedAt = deletedAt;
         this.residenceMonths = residenceMonths;
-        this.pregnancyWeeks = pregnancyWeeks;
+        this.dueDate = dueDate;
         this.infantMonths = infantMonths;
         this.incomeLevel = incomeLevel;
         this.isHomeless = isHomeless;
