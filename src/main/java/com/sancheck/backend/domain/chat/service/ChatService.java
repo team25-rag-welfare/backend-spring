@@ -29,6 +29,21 @@ public class ChatService {
     private final MemoryService memoryService;
     private final RestTemplate restTemplate = new RestTemplate(); //파이썬 ai server와 통신
 
+    //User의 질문 중 민감한 정보가 있다면 마스킹
+    private String maskSensitiveInfo(String content){
+        if (content == null || content.isEmpty()){
+            return content;
+        }
+        //주민번호 마스킹
+        String rrnRegex = "(\\d{6})-[0-9]{7,9}";
+        content = content.replaceAll(rrnRegex, "$1-*******");
+
+        //전화번호 마스킹
+        String phoneRegex = "(\\d{2,3})-\\d{3,4}-(\\d{4})";
+        content = content.replaceAll(phoneRegex, "$1-****-2");
+
+        return content;
+    }
     public ChatResponseDto processRagChat(String userId, ChatRequestDto request) {
 
         //1. MySQL에서 질문한 유저 정보 꺼내오기
@@ -36,26 +51,31 @@ public class ChatService {
             .orElseThrow(() -> new IllegalArgumentException("user를 찾을 수 없습니다."));
         System.out.println("질문자 정보를 확인 : " + user.getUserId() + "님 입니다.");
 
-        //2. User 질문을 MongoDB에 저장
+        //2. User의 민감한 정보 마스킹
+        String safeContent = maskSensitiveInfo(request.getContent());
+
+
+        //3. User 질문을 MongoDB에 저장
         ChatMessage userMsg = new ChatMessage();
         userMsg.setUserId(userId);
         userMsg.setSenderType("USER");
-        userMsg.setContent(request.getContent());
+        userMsg.setContent(safeContent);
         userMsg.setDeleted(false);
         userMsg.setRegenerated(false);
         chatMessageRepository.save(userMsg);
         System.out.println("User의 질문 저장 완료");
 
-        //3. User의 memory 긁어오기
+        //4. User의 memory 긁어오기
         List<String> memoryList = memoryService.getMemoryContents(user);
         System.out.println("기존의 사용자 메모리 긁어오는데 성공" + memoryList);
 
-        //4. 파이썬 ai 서버로 질문 및 유저 조건 json 포장(임시)
+        //5. 파이썬 ai 서버로 질문 및 유저 조건 json 포장(임시)
         String pythonServerUrl = "http://localhost:8000/api/ai/chat";
         Map<String, Object> aiRequest = new HashMap<>();
-        aiRequest.put("question", request.getContent());
+        aiRequest.put("question", safeContent);
         aiRequest.put("age", user.getUserAge()); //ai에게 사용자 정보를 넘겨줌 (일단은 나이만)
         aiRequest.put("memories", memoryList);
+        System.out.println("AiRequest 의 정보" + aiRequest);
 
         String aiAnswer = "";
         String extractedNewMemory = null;
@@ -74,7 +94,7 @@ public class ChatService {
         //테스트용 임시입니다.
         extractedNewMemory = "사용자는 매운 것을 매우 좋아함 (테스트 메모리)";
 
-        //5. ai의 답변을 mongoDB에 저장
+        //6. ai의 답변을 mongoDB에 저장
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setUserId(userId);
         aiMsg.setSenderType("ASSISTANT");
@@ -84,10 +104,10 @@ public class ChatService {
         chatMessageRepository.save(aiMsg);
         System.out.println("ai 답변 저장 완료");
 
-        //6. ai 서버에서 새로운 메모리를 보냈다면?
+        //7. ai 서버에서 새로운 메모리를 보냈다면?
         memoryService.saveNewMemory(user, extractedNewMemory);
 
-        //7. 프론트엔드로 저장물 던지기
+        //8. 프론트엔드로 저장물 던지기
         return ChatResponseDto.builder()
             .answer(aiAnswer)
             .senderType("ASSISTANT")

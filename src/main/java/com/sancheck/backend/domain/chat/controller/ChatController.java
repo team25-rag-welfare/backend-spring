@@ -65,7 +65,7 @@ public class ChatController {
     public ResponseEntity<Page<ChatHistoryDto>> getChatByDate(
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate targetDate,
         @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
-        String userId = "test_user_001"; // (임시 하드코딩)
+        String userId = "test001"; // (임시 하드코딩)
         return ResponseEntity.ok(chatService.getChatByDate(userId, targetDate, pageable));
     }
 }
