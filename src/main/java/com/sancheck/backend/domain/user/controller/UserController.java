@@ -1,5 +1,42 @@
 package com.sancheck.backend.domain.user.controller;
 
-public class UserController {
+import com.sancheck.backend.domain.user.dto.response.UserResponseDto;
+import com.sancheck.backend.domain.user.service.UserService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import com.sancheck.backend.domain.user.dto.request.UserRequestDto;
+import com.sancheck.backend.domain.user.dto.request.OnboardingRequestDto;
 
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/profile")
+public class UserController {
+  private final UserService userService;
+
+  // 회원 정보 조회
+  @GetMapping("")
+  public ResponseEntity<UserResponseDto> getUserInfo(@RequestHeader("userId") Long userId) {
+    return ResponseEntity.ok(userService.getUserInfo(userId));
+  }
+
+  // 조건 정보 수정
+  @PutMapping("")
+  public ResponseEntity<Void> updateUserProfile(
+      @RequestHeader("userId") Long userId,
+      @RequestBody UserRequestDto request) {
+    userService.updateUserProfile(userId, request);
+    return ResponseEntity.ok().build();
+  }
+
+  // 온보딩 초기 정보 저장
+  @PostMapping("/onboarding")
+  public ResponseEntity<Void> saveOnboarding(
+      @RequestHeader(value = "userId", required = false) Long userId,
+      @RequestBody OnboardingRequestDto request) {
+    if (userId != null) {
+      userService.saveOnboarding(userId, request);
+    }
+    return ResponseEntity.ok().build();
+  }
 }
