@@ -8,8 +8,8 @@ import com.sancheck.backend.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +43,13 @@ public class AuthService {
                     .kakaoId(kakaoId)
                     .email(email)
                     .nickname(nickname)
+                    // nullable=false 필드에 임시 기본값 설정 (온보딩 단계에서 실제 값으로 갱신됨)
+                    .userName(nickname)       // 이름은 일단 카카오 닉네임으로 초기화
+                    .pregnancyStatus("NONE")  // 임신 여부: 지정 안 함
+                    .district("NONE")         // 거주 자치구: 지정 안 함
+                    .childCount(0)            // 자녀 수: 0명
+                    .isDeleted(false)
+                    .termsAgreedAt(LocalDateTime.now()) // 약관 동의: 가입 시각으로 초기화
                     .build();
             userRepository.save(user);
             isNewUser = true;
