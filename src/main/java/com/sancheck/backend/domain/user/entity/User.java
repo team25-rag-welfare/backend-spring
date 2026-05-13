@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import com.sancheck.backend.global.common.BaseEntity;
 import java.time.LocalDate;
 import com.sancheck.backend.domain.user.dto.request.UserRequestDto;
+import com.sancheck.backend.domain.user.dto.request.OnboardingRequestDto;
 
 @Entity
 @Table(name = "users")
@@ -115,5 +116,12 @@ public class User extends BaseEntity {
         this.residenceMonths = request.getResidenceMonths();
         this.incomeLevel = request.getIncomeLevel();
         this.isHomeless = request.getIsHomeless();
+    }
+
+    public void saveOnboarding(OnboardingRequestDto request) {
+        this.district = request.getDistrict();
+        this.pregnancyStatus = request.getPregnancyStatus();
+        this.userAge = request.getUserAge();
+        this.childCount = request.getChildCount();
     }
 }
