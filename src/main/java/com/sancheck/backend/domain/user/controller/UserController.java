@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.sancheck.backend.domain.user.dto.request.UserRequestDto;
+import com.sancheck.backend.domain.user.dto.request.OnboardingRequestDto;
 
 @RestController
 @RequiredArgsConstructor
@@ -25,6 +26,17 @@ public class UserController {
       @RequestHeader("userId") Long userId,
       @RequestBody UserRequestDto request) {
     userService.updateUserProfile(userId, request);
+    return ResponseEntity.ok().build();
+  }
+
+  // 온보딩 초기 정보 저장
+  @PostMapping("/onboarding")
+  public ResponseEntity<Void> saveOnboarding(
+      @RequestHeader(value = "userId", required = false) Long userId,
+      @RequestBody OnboardingRequestDto request) {
+    if (userId != null) {
+      userService.saveOnboarding(userId, request);
+    }
     return ResponseEntity.ok().build();
   }
 }
