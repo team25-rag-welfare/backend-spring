@@ -4,6 +4,7 @@ import com.sancheck.backend.domain.auth.client.KakaoApiClient;
 import com.sancheck.backend.domain.auth.dto.response.KakaoAuthResponse;
 import com.sancheck.backend.domain.user.entity.User;
 import com.sancheck.backend.domain.user.repository.UserRepository;
+import com.sancheck.backend.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final KakaoApiClient kakaoApiClient;
+    private final JwtTokenProvider jwtTokenProvider;
 
     public KakaoAuthResponse kakaoLogin(String authCode) {
         // 1. 인가 코드로 카카오 액세스 토큰 요청 (외부 통신 분리)
@@ -47,8 +49,8 @@ public class AuthService {
         }
 
         // 4. 서비스 토큰 발급 (DB에 저장된 user.getId() 활용)
-        String serviceToken = "dummy-jwt-token-userid-" + user.getId() + "-" + UUID.randomUUID().toString();
+        String accessToken = jwtTokenProvider.createToken(String.valueOf(user.getId()));
 
-        return new KakaoAuthResponse(serviceToken, isNewUser);
+        return new KakaoAuthResponse(accessToken, isNewUser);
     }
 }
