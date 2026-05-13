@@ -5,6 +5,7 @@ import com.sancheck.backend.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.sancheck.backend.domain.user.dto.request.UserRequestDto;
 
 @RestController
 @RequiredArgsConstructor
@@ -16,5 +17,14 @@ public class UserController {
   @GetMapping("")
   public ResponseEntity<UserResponseDto> getUserInfo(@RequestHeader("userId") Long userId) {
     return ResponseEntity.ok(userService.getUserInfo(userId));
+  }
+
+  // 조건 정보 수정
+  @PutMapping("")
+  public ResponseEntity<Void> updateUserProfile(
+      @RequestHeader("userId") Long userId,
+      @RequestBody UserRequestDto request) {
+    userService.updateUserProfile(userId, request);
+    return ResponseEntity.ok().build();
   }
 }

@@ -8,6 +8,7 @@ import lombok.Builder;
 import java.time.LocalDateTime;
 import com.sancheck.backend.global.common.BaseEntity;
 import java.time.LocalDate;
+import com.sancheck.backend.domain.user.dto.request.UserRequestDto;
 
 @Entity
 @Table(name = "users")
@@ -100,5 +101,19 @@ public class User extends BaseEntity {
         this.infantMonths = infantMonths;
         this.incomeLevel = incomeLevel;
         this.isHomeless = isHomeless;
+    }
+
+    public void updateProfile(UserRequestDto request) {
+        this.district = request.getDistrict();
+        this.pregnancyStatus = request.getPregnancyStatus();
+        this.userAge = request.getUserAge();
+        this.childCount = request.getChildCount();
+        this.dueDate = request.getDueDate();
+        this.infantMonths = request.getInfantMonths();
+        this.isMultibirth = request.getIsMultibirth();
+        this.isForeigner = request.getIsForeigner();
+        this.residenceMonths = request.getResidenceMonths();
+        this.incomeLevel = request.getIncomeLevel();
+        this.isHomeless = request.getIsHomeless();
     }
 }
