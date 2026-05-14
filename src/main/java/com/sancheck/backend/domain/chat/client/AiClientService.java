@@ -1,6 +1,5 @@
 package com.sancheck.backend.domain.chat.client;
 
-import com.sancheck.backend.domain.chat.document.ChatMessage;
 import com.sancheck.backend.domain.chat.dto.response.AiResponseDto;
 import com.sancheck.backend.domain.user.entity.User;
 import java.util.HashMap;
