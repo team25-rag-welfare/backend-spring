@@ -20,7 +20,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +28,6 @@ public class ChatService {
     private final UserRepository userRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final MemoryService memoryService;
-    private final RestTemplate restTemplate = new RestTemplate(); //파이썬 ai server와 통신
     private final AiClientService aiClientService;
 
     //User의 질문 중 민감한 정보가 있다면 마스킹
@@ -100,10 +98,10 @@ public class ChatService {
     }
 
     //채팅 내역 조회 메서드
-    public List<ChatHistoryDto> getChatHistory(String userId){
+    public List<ChatHistoryDto> getChatHistory(Long userId){
 
         //비회원이면 바로 아웃
-        if (userId == null || userId.equals("guest") || userId.trim().isEmpty()){
+        if (userId == null){
             System.out.print("비회원은 대화 내역을 저장하지 않습니다.");
             return List.of();
         }
@@ -122,7 +120,7 @@ public class ChatService {
     }
 
     //채팅 내역 검색
-    public Page<ChatHistoryDto> searchChatByKeyword(String userId, String keyword, Pageable pageable){
+    public Page<ChatHistoryDto> searchChatByKeyword(Long userId, String keyword, Pageable pageable){
         //DB에서 페이징된 결과 가져오기
         Page<ChatMessage> messagePage = chatMessageRepository.findByUserIdAndContentContainingIgnoreCase(userId, keyword, pageable);
 
@@ -137,7 +135,7 @@ public class ChatService {
     }
 
     //특정 날짜 기준 검색
-    public Page<ChatHistoryDto> getChatByDate(String userId, LocalDate targetDate, Pageable pageable){
+    public Page<ChatHistoryDto> getChatByDate(Long userId, LocalDate targetDate, Pageable pageable){
         //클릭한 날짜의 00:00부터 23:59까지로 잡는다.
         LocalDateTime startOfDay = targetDate.atStartOfDay();
         LocalDateTime endOfDay = targetDate.atTime(23, 59, 59);

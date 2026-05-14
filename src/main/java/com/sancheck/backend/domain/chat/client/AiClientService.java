@@ -22,7 +22,7 @@ public class AiClientService {
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("age", user.getUserAge());
         userInfo.put("district", user.getDistrict());
-        userInfo.put("pregnancy_weeks", user.getPregnancyWeeks());
+        userInfo.put("pregnancy_weeks", user.getDueDate());
 
         requestBody.put("user_info", userInfo);
         requestBody.put("memory", memory);

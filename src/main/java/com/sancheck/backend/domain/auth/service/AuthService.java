@@ -1,7 +1,7 @@
 package com.sancheck.backend.domain.auth.service;
 
 import com.sancheck.backend.domain.auth.client.KakaoApiClient;
-import com.sancheck.backend.domain.auth.dto.response.KakaoAuthResponse;
+import com.sancheck.backend.domain.auth.dto.response.KakaoAuthResponseDto;
 import com.sancheck.backend.domain.user.entity.User;
 import com.sancheck.backend.domain.user.repository.UserRepository;
 import com.sancheck.backend.global.jwt.JwtTokenProvider;
@@ -19,7 +19,7 @@ public class AuthService {
     private final KakaoApiClient kakaoApiClient;
     private final JwtTokenProvider jwtTokenProvider;
 
-    public KakaoAuthResponse kakaoLogin(String authCode) {
+    public KakaoAuthResponseDto kakaoLogin(String authCode) {
         // 1. 인가 코드로 카카오 액세스 토큰 요청 (외부 통신 분리)
         String kakaoAccessToken = kakaoApiClient.getKakaoAccessToken(authCode);
 
@@ -58,6 +58,6 @@ public class AuthService {
         // 4. 서비스 토큰 발급 (DB에 저장된 user.getId() 활용)
         String accessToken = jwtTokenProvider.createToken(String.valueOf(user.getId()));
 
-        return new KakaoAuthResponse(accessToken, isNewUser);
+        return new KakaoAuthResponseDto(accessToken, isNewUser);
     }
 }
