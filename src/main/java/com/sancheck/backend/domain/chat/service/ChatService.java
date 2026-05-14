@@ -1,8 +1,10 @@
 package com.sancheck.backend.domain.chat.service;
 
+import com.sancheck.backend.domain.chat.client.AiClientService;
 import com.sancheck.backend.domain.chat.document.ChatMessage;
 import com.sancheck.backend.domain.chat.dto.ChatHistoryDto;
 import com.sancheck.backend.domain.chat.dto.request.ChatRequestDto;
+import com.sancheck.backend.domain.chat.dto.response.AiResponseDto;
 import com.sancheck.backend.domain.chat.dto.response.ChatResponseDto;
 import com.sancheck.backend.domain.chat.repository.ChatMessageRepository;
 import com.sancheck.backend.domain.memory.sevice.MemoryService;
@@ -28,6 +30,7 @@ public class ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final MemoryService memoryService;
     private final RestTemplate restTemplate = new RestTemplate(); //파이썬 ai server와 통신
+    private final AiClientService aiClientService;
 
     //User의 질문 중 민감한 정보가 있다면 마스킹
     private String maskSensitiveInfo(String content){
@@ -44,12 +47,12 @@ public class ChatService {
 
         return content;
     }
-    public ChatResponseDto processRagChat(String userId, ChatRequestDto request) {
+    public ChatResponseDto processRagChat(Long userId, ChatRequestDto request) {
 
         //1. MySQL에서 질문한 유저 정보 꺼내오기
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new IllegalArgumentException("user를 찾을 수 없습니다."));
-        System.out.println("질문자 정보를 확인 : " + user.getUserId() + "님 입니다.");
+        System.out.println("질문자 정보를 확인 : " + user.getId() + "님 입니다.");
 
         //2. User의 민감한 정보 마스킹
         String safeContent = maskSensitiveInfo(request.getContent());
@@ -69,30 +72,11 @@ public class ChatService {
         List<String> memoryList = memoryService.getMemoryContents(user);
         System.out.println("기존의 사용자 메모리 긁어오는데 성공" + memoryList);
 
-        //5. 파이썬 ai 서버로 질문 및 유저 조건 json 포장(임시)
-        String pythonServerUrl = "http://localhost:8000/api/ai/chat";
-        Map<String, Object> aiRequest = new HashMap<>();
-        aiRequest.put("question", safeContent);
-        aiRequest.put("age", user.getUserAge()); //ai에게 사용자 정보를 넘겨줌 (일단은 나이만)
-        aiRequest.put("memories", memoryList);
-        System.out.println("AiRequest 의 정보" + aiRequest);
+        //5. User 질문 POST 및 ai 답변 받아오고 새로운 메모리 받아오기 (메모리가 있다면)
+        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(user, memoryList, safeContent);
+        String aiAnswer = aiAnswerMemories.answer();
+        List<String> extractedNewMemories = aiAnswerMemories.newMemories();
 
-        String aiAnswer = "";
-        String extractedNewMemory = null;
-        try{
-            System.out.println("ai 서버로 요청중");
-            ResponseEntity<Map> response = restTemplate.postForEntity(pythonServerUrl, aiRequest, Map.class);
-            if (response.getBody() != null){
-                aiAnswer = (String) response.getBody().getOrDefault("answer", aiAnswer);
-                extractedNewMemory = (String) response.getBody().get("new_memory");
-            }
-        } catch (Exception e){
-            System.out.println("ai 서버 응답 없음");
-            aiAnswer = "현재 AI 서버 점검 중입니다.";
-        }
-
-        //테스트용 임시입니다.
-        extractedNewMemory = "사용자는 매운 것을 매우 좋아함 (테스트 메모리)";
 
         //6. ai의 답변을 mongoDB에 저장
         ChatMessage aiMsg = new ChatMessage();
@@ -105,7 +89,7 @@ public class ChatService {
         System.out.println("ai 답변 저장 완료");
 
         //7. ai 서버에서 새로운 메모리를 보냈다면?
-        memoryService.saveNewMemory(user, extractedNewMemory);
+        memoryService.saveNewMemory(user, extractedNewMemories);
 
         //8. 프론트엔드로 저장물 던지기
         return ChatResponseDto.builder()

@@ -29,7 +29,7 @@ public class ChatController {
     @PostMapping("/messages")
     public ResponseEntity<?> sendMessage(@RequestBody ChatRequestDto request){
 
-        String userId = "test001";
+        Long userId = 001L;
 
         System.out.println("임시 유저 [" + userId + "]의 질문이 도착했습니다: " + request.getContent());
 

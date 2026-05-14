@@ -20,7 +20,7 @@ public class MemoryController {
 
     @GetMapping
     public ResponseEntity<List<MemoryResponseDto>> getMyMemories(){
-        String userId = "test001"; //임시
+        Long userId = 1L; //임시
         return ResponseEntity.ok(memoryService.getUserMemories(userId));
     }
 

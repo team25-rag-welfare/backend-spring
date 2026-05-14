@@ -1,5 +1,6 @@
 package com.sancheck.backend.domain.memory.sevice;
 
+import com.sancheck.backend.domain.chat.document.ChatMessage;
 import com.sancheck.backend.domain.memory.dto.response.MemoryResponseDto;
 import com.sancheck.backend.domain.memory.entity.Memory;
 import com.sancheck.backend.domain.memory.repository.MemoryRepository;
@@ -27,18 +28,23 @@ public class MemoryService {
 
     //AI server에서 포착한 새로운 메모리를 MySQL에 저장
     @Transactional
-    public void saveNewMemory(User user, String extractedMemory){
-        if (extractedMemory != null && !extractedMemory.trim().isEmpty()){
-            Memory newMemory = new Memory();
-            newMemory.setUser(user);
-            newMemory.setContent(extractedMemory);
-            memoryRepository.save(newMemory);
-            System.out.println("user의 새로운 메모리 저장 완료" + extractedMemory);
+    public void saveNewMemory(User user, List<String> extractedMemories){
+        if (extractedMemories != null && !extractedMemories.isEmpty()){
+            for (String memory : extractedMemories){
+                if (memory != null && !memory.trim().isEmpty()){
+                    Memory newMemory = new Memory();
+                    newMemory.setUser(user);
+                    newMemory.setContent(memory);
+                    memoryRepository.save(newMemory);
+                    System.out.println("user의 새로운 메모리 저장 완료" + memory);
+                }
+            }
+
         }
     }
 
     @Transactional(readOnly = true)
-    public List<MemoryResponseDto> getUserMemories(String userId) {
+    public List<MemoryResponseDto> getUserMemories(Long userId) {
         User user = userRepository.findById(userId).orElseThrow();
 
         // repository가 IS NULL 조건을 알아서 붙여서 가져옵니다.

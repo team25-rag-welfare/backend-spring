@@ -15,7 +15,7 @@ public class ChatMessage {
     @Field("message_id")
     private String id;
 
-    private String userId;
+    private Long userId;
 
     @Field("sender_type")
     private String senderType;
