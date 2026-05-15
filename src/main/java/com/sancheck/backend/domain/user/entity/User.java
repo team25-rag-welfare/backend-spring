@@ -124,4 +124,8 @@ public class User extends BaseEntity {
         this.userAge = request.getUserAge();
         this.childCount = request.getChildCount();
     }
+
+    public void agreeTerms(LocalDateTime agreedAt) {
+        this.termsAgreedAt = agreedAt;
+    }
 }
