@@ -6,6 +6,7 @@ import com.sancheck.backend.domain.user.entity.User;
 import com.sancheck.backend.domain.user.repository.UserRepository;
 import com.sancheck.backend.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -59,5 +60,13 @@ public class AuthService {
         String accessToken = jwtTokenProvider.createToken(String.valueOf(user.getId()));
 
         return new KakaoAuthResponse(accessToken, isNewUser);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    public void agreeTerms(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.agreeTerms(LocalDateTime.now());
+        userRepository.save(user);
     }
 }
