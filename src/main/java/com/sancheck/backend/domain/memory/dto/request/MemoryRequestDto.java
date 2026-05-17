@@ -1,5 +1,12 @@
 package com.sancheck.backend.domain.memory.dto.request;
 
-public class MemoryRequestDto {
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+@Getter
+@Setter
+@NoArgsConstructor
+public class MemoryRequestDto {
+    private String content;
 }
