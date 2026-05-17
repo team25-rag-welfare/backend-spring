@@ -1,6 +1,6 @@
 package com.sancheck.backend.domain.auth.controller;
 
-import com.sancheck.backend.domain.auth.dto.request.KakaoAuthRequestDto;
+import com.sancheck.backend.domain.auth.dto.request.KakaoAuthRequest;
 import com.sancheck.backend.domain.auth.dto.response.KakaoAuthResponse;
 import com.sancheck.backend.domain.auth.service.AuthService;
 import com.sancheck.backend.global.security.CustomUserDetails;
@@ -21,7 +21,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/kakao")
-    public ResponseEntity<KakaoAuthResponse> kakaoLogin(@RequestBody KakaoAuthRequestDto request) {
+    public ResponseEntity<KakaoAuthResponse> kakaoLogin(@RequestBody KakaoAuthRequest request) {
         KakaoAuthResponse response = authService.kakaoLogin(request.getAuth_code());
         return ResponseEntity.ok(response);
     }

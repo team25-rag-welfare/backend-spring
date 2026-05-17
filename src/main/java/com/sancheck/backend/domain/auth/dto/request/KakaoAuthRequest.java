@@ -7,6 +7,6 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class KakaoAuthRequestDto {
+public class KakaoAuthRequest {
     private String auth_code;
 }
