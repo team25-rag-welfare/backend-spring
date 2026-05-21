@@ -46,4 +46,13 @@ public class UserController {
     }
     return ResponseEntity.ok().build();
   }
+
+  // 회원 탈퇴
+  @DeleteMapping("")
+  @PreAuthorize("isAuthenticated()")
+  public ResponseEntity<Void> deleteUser(Authentication authentication) {
+    Long userId = Long.parseLong(authentication.getName());
+    userService.deleteUser(userId);
+    return ResponseEntity.ok().build();
+  }
 }
