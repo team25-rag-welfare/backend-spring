@@ -13,6 +13,7 @@ import com.sancheck.backend.domain.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,8 +29,8 @@ public class ChatService {
     private final AiClientService aiClientService;
 
     //User의 질문 중 민감한 정보가 있다면 마스킹
-    private String maskSensitiveInfo(String content){
-        if (content == null || content.isEmpty()){
+    private String maskSensitiveInfo(String content) {
+        if (content == null || content.isEmpty()) {
             return content;
         }
         //주민번호 마스킹
@@ -42,16 +43,16 @@ public class ChatService {
 
         return content;
     }
+
     public ChatResponseDto processRagChat(Long userId, ChatRequestDto request) {
 
         //1. MySQL에서 질문한 유저 정보 꺼내오기
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("user를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("user를 찾을 수 없습니다."));
         System.out.println("질문자 정보를 확인 : " + user.getId() + "님 입니다.");
 
         //2. User의 민감한 정보 마스킹
         String safeContent = maskSensitiveInfo(request.getContent());
-
 
         //3. User 질문을 MongoDB에 저장
         ChatMessage userMsg = new ChatMessage();
@@ -69,15 +70,17 @@ public class ChatService {
 
         //5. User 질문 POST 및 ai 답변 받아오고 새로운 메모리 받아오기 (메모리가 있다면)
         AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(user, memoryList, safeContent);
-        String aiAnswer = aiAnswerMemories.answer();
+        List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
         List<String> extractedNewMemories = aiAnswerMemories.newMemories();
-
 
         //6. ai의 답변을 mongoDB에 저장
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setUserId(userId);
         aiMsg.setSenderType("ASSISTANT");
-        aiMsg.setContent(aiAnswer);
+        String aiContent = policies.stream()
+                .map(p -> "[" + p.policyName() + "]\n" + p.content())
+                .collect(Collectors.joining("\n\n"));
+        aiMsg.setContent(aiContent);
         aiMsg.setDeleted(false);
         aiMsg.setRegenerated(false);
         chatMessageRepository.save(aiMsg);
@@ -87,18 +90,25 @@ public class ChatService {
         memoryService.saveNewMemory(user, extractedNewMemories);
 
         //8. 프론트엔드로 저장물 던지기
+        List<ChatResponseDto.PolicyAnswer> responsePolicies = policies.stream()
+                .map(p -> ChatResponseDto.PolicyAnswer.builder()
+                        .policyName(p.policyName())
+                        .content(p.content())
+                        .build())
+                .collect(Collectors.toList());
+
         return ChatResponseDto.builder()
-            .answer(aiAnswer)
-            .senderType("ASSISTANT")
-            .build();
+                .policies(responsePolicies)
+                .senderType("ASSISTANT")
+                .build();
 
     }
 
     //채팅 내역 조회 메서드
-    public List<ChatHistoryDto> getChatHistory(Long userId){
+    public List<ChatHistoryDto> getChatHistory(Long userId) {
 
         //비회원이면 바로 아웃
-        if (userId == null){
+        if (userId == null) {
             System.out.print("비회원은 대화 내역을 저장하지 않습니다.");
             return List.of();
         }
@@ -108,44 +118,46 @@ public class ChatService {
 
         //꺼낸 내역을 리스트로 포장
         return messages.stream()
-            .map(msg -> ChatHistoryDto.builder()
-                .senderType(msg.getSenderType())
-                .content(msg.getContent())
-                .createdAt(msg.getCreatedAt())
-                .build())
-            .toList();
+                .map(msg -> ChatHistoryDto.builder()
+                        .senderType(msg.getSenderType())
+                        .content(msg.getContent())
+                        .createdAt(msg.getCreatedAt())
+                        .build())
+                .toList();
     }
 
     //채팅 내역 검색
-    public Page<ChatHistoryDto> searchChatByKeyword(Long userId, String keyword, Pageable pageable){
+    public Page<ChatHistoryDto> searchChatByKeyword(Long userId, String keyword, Pageable pageable) {
         //DB에서 페이징된 결과 가져오기
-        Page<ChatMessage> messagePage = chatMessageRepository.findByUserIdAndContentContainingIgnoreCase(userId, keyword, pageable);
+        Page<ChatMessage> messagePage = chatMessageRepository.findByUserIdAndContentContainingIgnoreCase(userId,
+                keyword, pageable);
 
         return messagePage
-            .map(msg -> ChatHistoryDto.builder()
-                .id(msg.getId())
-                .senderType(msg.getSenderType())
-                .content(msg.getContent())
-                .createdAt(msg.getCreatedAt())
-                .build());
+                .map(msg -> ChatHistoryDto.builder()
+                        .id(msg.getId())
+                        .senderType(msg.getSenderType())
+                        .content(msg.getContent())
+                        .createdAt(msg.getCreatedAt())
+                        .build());
 
     }
 
     //특정 날짜 기준 검색
-    public Page<ChatHistoryDto> getChatByDate(Long userId, LocalDate targetDate, Pageable pageable){
+    public Page<ChatHistoryDto> getChatByDate(Long userId, LocalDate targetDate, Pageable pageable) {
         //클릭한 날짜의 00:00부터 23:59까지로 잡는다.
         LocalDateTime startOfDay = targetDate.atStartOfDay();
         LocalDateTime endOfDay = targetDate.atTime(23, 59, 59);
 
-        Page<ChatMessage> messages = chatMessageRepository.findByUserIdAndCreatedAtBetween(userId, startOfDay, endOfDay, pageable);
+        Page<ChatMessage> messages = chatMessageRepository.findByUserIdAndCreatedAtBetween(userId, startOfDay, endOfDay,
+                pageable);
 
         return messages
-            .map(msg -> ChatHistoryDto.builder()
-                .id(msg.getId())
-                .senderType(msg.getSenderType())
-                .content(msg.getContent())
-                .createdAt(msg.getCreatedAt())
-                .build());
+                .map(msg -> ChatHistoryDto.builder()
+                        .id(msg.getId())
+                        .senderType(msg.getSenderType())
+                        .content(msg.getContent())
+                        .createdAt(msg.getCreatedAt())
+                        .build());
 
     }
 }
