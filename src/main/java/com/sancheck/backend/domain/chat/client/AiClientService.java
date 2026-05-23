@@ -2,12 +2,14 @@ package com.sancheck.backend.domain.chat.client;
 
 import com.sancheck.backend.domain.chat.dto.response.AiResponseDto;
 import com.sancheck.backend.domain.user.entity.User;
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -15,9 +17,17 @@ import org.springframework.web.reactive.function.client.WebClient;
 @RequiredArgsConstructor
 public class AiClientService {
 
-    private final WebClient webClient = WebClient.builder().baseUrl("http://0.0.0.0:8000").build();
+    @Value("${ai.server.url}")
+    private String aiServerUrl;
 
-    public AiResponseDto getAiResponse(User user, List<String> memory, String userMessage){
+    private WebClient webClient;
+
+    @PostConstruct
+    public void init() {
+        this.webClient = WebClient.builder().baseUrl(aiServerUrl).build();
+    }
+
+    public AiResponseDto getAiResponse(User user, List<String> memory, String userMessage) {
         //1. 데이터 포장
         Map<String, Object> requestBody = new HashMap<>();
         Map<String, Object> userInfo = new HashMap<>();
@@ -34,16 +44,21 @@ public class AiClientService {
             int pregnancyWeeks = (int) ((280 - daysUntilDue) / 7);
             userInfo.put("pregnancy_weeks", pregnancyWeeks);
         }
-        if (user.getInfantMonths() != null)
+        if (user.getInfantMonths() != null) {
             userInfo.put("child_age_months", user.getInfantMonths());
-        if (user.getIsMultibirth() != null)
+        }
+        if (user.getIsMultibirth() != null) {
             userInfo.put("multiple_birth", user.getIsMultibirth());
-        if (user.getIsForeigner() != null)
+        }
+        if (user.getIsForeigner() != null) {
             userInfo.put("is_korean", !user.getIsForeigner());
-        if (user.getIsHomeless() != null)
+        }
+        if (user.getIsHomeless() != null) {
             userInfo.put("no_house", user.getIsHomeless());
-        if (user.getIncomeLevel() != null)
+        }
+        if (user.getIncomeLevel() != null) {
             userInfo.put("income_level", user.getIncomeLevel());
+        }
 
         requestBody.put("user_info", userInfo);
         requestBody.put("memory", memory);
