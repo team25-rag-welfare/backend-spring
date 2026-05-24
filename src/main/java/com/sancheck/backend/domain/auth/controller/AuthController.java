@@ -33,4 +33,13 @@ public class AuthController {
         authService.agreeTerms(userDetails.getUser().getId());
         return ResponseEntity.ok().build();
     }
+
+    // 로그아웃 API (Stateless 방식)
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        // Stateless 방식이므로 백엔드에서는 별도의 토큰 삭제 로직 없이 성공 응답만 반환
+        // 실제 토큰 삭제는 프론트엔드(클라이언트)에서 수행합니다.
+        return ResponseEntity.ok().build();
+    }
 }

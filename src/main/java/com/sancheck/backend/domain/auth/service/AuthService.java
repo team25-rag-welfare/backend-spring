@@ -54,6 +54,10 @@ public class AuthService {
                     .build();
             userRepository.save(user);
             isNewUser = true;
+        } else if (Boolean.TRUE.equals(user.getIsDeleted())) {
+            user.reactivate(nickname);
+            userRepository.save(user);
+            isNewUser = true;
         }
 
         // 4. 서비스 토큰 발급 (DB에 저장된 user.getId() 활용)

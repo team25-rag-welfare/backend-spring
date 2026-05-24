@@ -128,4 +128,29 @@ public class User extends BaseEntity {
     public void agreeTerms(LocalDateTime agreedAt) {
         this.termsAgreedAt = agreedAt;
     }
+
+    public void withdraw() {
+        this.isDeleted = true;
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public void reactivate(String nickname) {
+        this.isDeleted = false;
+        this.deletedAt = null;
+        this.nickname = nickname;
+        this.userName = nickname;
+        this.pregnancyStatus = "NONE";
+        this.district = "NONE";
+        this.childCount = 0;
+        this.termsAgreedAt = LocalDateTime.now();
+        
+        // Onboarding and optional fields initialization
+        this.isMultibirth = null;
+        this.isForeigner = null;
+        this.residenceMonths = null;
+        this.dueDate = null;
+        this.infantMonths = null;
+        this.incomeLevel = null;
+        this.isHomeless = null;
+    }
 }
