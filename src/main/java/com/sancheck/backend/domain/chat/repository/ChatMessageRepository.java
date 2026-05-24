@@ -25,4 +25,7 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
 
     // chatId보다 작은 USER 메시지 중 가장 최근 것
     Optional<ChatMessage> findTopByUserIdAndSenderTypeAndIdLessThanOrderByIdDesc(Long userId, String senderType, String id);
+
+    //가장 최근 대화 2개
+    List<ChatMessage> findTop2ByUserIdOrderByCreatedAtDesc(Long userId);
 }
