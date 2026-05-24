@@ -77,10 +77,7 @@ public class ChatService {
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setUserId(userId);
         aiMsg.setSenderType("ASSISTANT");
-        String aiContent = policies.stream()
-                .map(p -> "[" + p.policyName() + "]\n" + p.content())
-                .collect(Collectors.joining("\n\n"));
-        aiMsg.setContent(aiContent);
+        aiMsg.setContent(toAiContent(policies));
         aiMsg.setDeleted(false);
         aiMsg.setRegenerated(false);
         chatMessageRepository.save(aiMsg);
@@ -89,16 +86,9 @@ public class ChatService {
         //7. ai 서버에서 새로운 메모리를 보냈다면?
         memoryService.saveNewMemory(user, extractedNewMemories);
 
-        //8. 프론트엔드로 저장물 던지기
-        List<ChatResponseDto.PolicyAnswer> responsePolicies = policies.stream()
-                .map(p -> ChatResponseDto.PolicyAnswer.builder()
-                        .policyName(p.policyName())
-                        .content(p.content())
-                        .build())
-                .collect(Collectors.toList());
-
         return ChatResponseDto.builder()
-                .policies(responsePolicies)
+                .messageId(aiMsg.getId())
+                .policies(toResponsePolicies(policies))
                 .senderType("ASSISTANT")
                 .build();
 
@@ -122,6 +112,7 @@ public class ChatService {
                         .senderType(msg.getSenderType())
                         .content(msg.getContent())
                         .createdAt(msg.getCreatedAt())
+                        .id(msg.getId())
                         .build())
                 .toList();
     }
@@ -159,5 +150,58 @@ public class ChatService {
                         .createdAt(msg.getCreatedAt())
                         .build());
 
+    }
+
+    public ChatResponseDto regenerateChat(Long userId, String chatId) {
+
+        // 1. chatId로 AI 메시지 조회
+        ChatMessage aiMsg = chatMessageRepository.findById(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("메시지를 찾을 수 없습니다."));
+
+        // 2. 직전 USER 메시지 조회
+        ChatMessage userMsg = chatMessageRepository
+                .findTopByUserIdAndSenderTypeAndIdLessThanOrderByIdDesc(userId, "USER", chatId)
+                .orElseThrow(() -> new IllegalArgumentException("이전 유저 메시지를 찾을 수 없습니다."));
+
+        // 3. 유저 정보 + 메모리 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("user를 찾을 수 없습니다."));
+        List<String> memoryList = memoryService.getMemoryContents(user);
+
+        // 4. AI 재생성 요청
+        AiResponseDto aiAnswerMemories = aiClientService.regenerateAiResponse(
+                user, memoryList, userMsg.getContent(), aiMsg.getContent());
+
+        List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
+        List<String> extractedNewMemories = aiAnswerMemories.newMemories();
+
+        // 5. 기존 AI 메시지 content 교체 + regenerated = true 저장
+        aiMsg.setContent(toAiContent(policies));
+        aiMsg.setRegenerated(true);
+        chatMessageRepository.save(aiMsg);
+
+        // 6. 새 메모리 저장
+        memoryService.saveNewMemory(user, extractedNewMemories);
+
+        return ChatResponseDto.builder()
+                .messageId(aiMsg.getId())
+                .policies(toResponsePolicies(policies))
+                .senderType("ASSISTANT")
+                .build();
+    }
+
+    private String toAiContent(List<AiResponseDto.PolicyAnswer> policies) {
+        return policies.stream()
+                .map(p -> "[" + p.policyName() + "]\n" + p.content())
+                .collect(Collectors.joining("\n\n"));
+    }
+
+    private List<ChatResponseDto.PolicyAnswer> toResponsePolicies(List<AiResponseDto.PolicyAnswer> policies) {
+        return policies.stream()
+                .map(p -> ChatResponseDto.PolicyAnswer.builder()
+                        .policyName(p.policyName())
+                        .content(p.content())
+                        .build())
+                .collect(Collectors.toList());
     }
 }
