@@ -1,5 +1,6 @@
 package com.sancheck.backend.domain.chat.dto.response;
 
+import com.sancheck.backend.domain.chat.dto.response.AiResponseDto.PolicyAnswer;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
@@ -8,7 +9,15 @@ import lombok.Getter;
 @Getter
 @Builder //데이터를 집어넣기 편하게 해줌
 public class ChatResponseDto {
-    private String answer; //ai 최종답변
+
+    private List<PolicyAnswer> policies;
     private String senderType; //누가 보냈나
     private String createdAt;
+
+    @Getter
+    @Builder
+    public static class PolicyAnswer {
+        private String policyName;
+        private String content;
+    }
 }
