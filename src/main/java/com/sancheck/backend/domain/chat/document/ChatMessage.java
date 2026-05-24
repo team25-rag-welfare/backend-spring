@@ -6,13 +6,14 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.mapping.FieldType;
+import org.springframework.data.mongodb.core.mapping.MongoId;
 
 @Data
 @Document(collection = "chat_messages")
 public class ChatMessage {
 
-    @Id
-    @Field("message_id")
+    @MongoId(FieldType.OBJECT_ID)
     private String id;
 
     private Long userId;
