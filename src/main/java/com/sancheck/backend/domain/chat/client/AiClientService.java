@@ -30,19 +30,46 @@ public class AiClientService {
     public AiResponseDto getAiResponse(User user, List<String> memory, String userMessage) {
         //1. 데이터 포장
         Map<String, Object> requestBody = new HashMap<>();
-        Map<String, Object> userInfo = new HashMap<>();
+        requestBody.put("user_info", buildUserInfo(user));
+        requestBody.put("memory", memory);
+        requestBody.put("user_message", userMessage);
 
-        // 필수
+        return webClient.post()
+                .uri("/api/v2/ai/chat")
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(AiResponseDto.class)
+                .block();
+
+    }
+
+    public AiResponseDto regenerateAiResponse(User user, List<String> memory, String userMessage,
+            String previousResponse) {
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("user_info", buildUserInfo(user));
+        requestBody.put("memory", memory);
+        requestBody.put("user_message", userMessage);
+        requestBody.put("regenerate", true);
+        requestBody.put("previous_response", previousResponse);
+
+        return webClient.post()
+                .uri("/api/v2/ai/chat")
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(AiResponseDto.class)
+                .block();
+    }
+
+    private Map<String, Object> buildUserInfo(User user) {
+        Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("district", user.getDistrict());
         userInfo.put("pregnancy_status", user.getPregnancyStatus());
         userInfo.put("age", user.getUserAge());
         userInfo.put("children_count", user.getChildCount());
 
-        // 선택
         if (user.getDueDate() != null) {
             long daysUntilDue = ChronoUnit.DAYS.between(LocalDate.now(), user.getDueDate());
-            int pregnancyWeeks = (int) ((280 - daysUntilDue) / 7);
-            userInfo.put("pregnancy_weeks", pregnancyWeeks);
+            userInfo.put("pregnancy_weeks", (int) ((280 - daysUntilDue) / 7));
         }
         if (user.getInfantMonths() != null) {
             userInfo.put("child_age_months", user.getInfantMonths());
@@ -60,19 +87,6 @@ public class AiClientService {
             userInfo.put("income_level", user.getIncomeLevel());
         }
 
-        requestBody.put("user_info", userInfo);
-        requestBody.put("memory", memory);
-        requestBody.put("user_message", userMessage);
-
-        //2. FastAPI로 POST 요청
-        return webClient.post()
-                .uri("/api/v2/ai/chat")
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(AiResponseDto.class)
-                .block();
-
-
+        return userInfo;
     }
-
 }

@@ -18,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,12 +29,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v2/chats")
 @RequiredArgsConstructor
 public class ChatController {
+
     private final ChatService chatService;
 
     @PostMapping("/messages")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ChatResponseDto> sendMessage(@AuthenticationPrincipal UserDetails userDetails,
-        @RequestBody ChatRequestDto requestDto){
+            @RequestBody ChatRequestDto requestDto) {
 
         CustomUserDetails customUser = (CustomUserDetails) userDetails;
         Long userId = customUser.getUser().getId();
@@ -44,7 +46,7 @@ public class ChatController {
 
     @GetMapping("/history")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<ChatHistoryDto>> getChatHistory(@AuthenticationPrincipal CustomUserDetails userDetails){
+    public ResponseEntity<List<ChatHistoryDto>> getChatHistory(@AuthenticationPrincipal CustomUserDetails userDetails) {
 
         Long userId = userDetails.getUser().getId();
         List<ChatHistoryDto> history = chatService.getChatHistory(userId);
@@ -55,10 +57,9 @@ public class ChatController {
     @GetMapping("/search")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<ChatHistoryDto>> searchChat(
-        @AuthenticationPrincipal CustomUserDetails userDetails,
-        @RequestParam String keyword,
-        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
-
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam String keyword,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
 
         Long userId = userDetails.getUser().getId();
         return ResponseEntity.ok(chatService.searchChatByKeyword(userId, keyword, pageable));
@@ -68,11 +69,21 @@ public class ChatController {
     @GetMapping("/date")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<ChatHistoryDto>> getChatByDate(
-        @AuthenticationPrincipal CustomUserDetails userDetails,
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate targetDate,
-        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate targetDate,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
 
         Long userId = userDetails.getUser().getId();
         return ResponseEntity.ok(chatService.getChatByDate(userId, targetDate, pageable));
+    }
+
+    @PostMapping("/{chatId}/regenerate")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ChatResponseDto> regenerateChat(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable String chatId) {
+
+        Long userId = userDetails.getUser().getId();
+        return ResponseEntity.ok(chatService.regenerateChat(userId, chatId));
     }
 }
