@@ -138,6 +138,22 @@ public class ChatService {
 
     }
 
+    //비회원 채팅
+    public ChatResponseDto processGuestChat(ChatRequestDto request){
+
+        //비회원이므로 신원조회 및 질문 저장 전부 패스
+        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(null,
+                new ArrayList<>(),
+                request.getContent(),
+                request.getChatHistory());
+        List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
+        return ChatResponseDto.builder()
+                .messageId(UUID.randomUUID().toString())
+                .policies(toResponsePolicies(policies))
+                .senderType("ASSISTANT")
+                .build();
+    }
+
     //채팅 내역 조회 메서드
     public List<ChatHistoryDto> getChatHistory(Long userId) {
 
