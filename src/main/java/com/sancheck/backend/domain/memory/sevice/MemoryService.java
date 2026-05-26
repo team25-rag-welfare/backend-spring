@@ -8,6 +8,9 @@ import com.sancheck.backend.domain.user.entity.User;
 import com.sancheck.backend.domain.user.repository.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +24,7 @@ public class MemoryService {
     //user의 과거 memory만 뽑아주는 기능
     @Transactional(readOnly = true)
     public List<String> getMemoryContents(User user){
-        return memoryRepository.findByUser(user).stream()
+        return memoryRepository.findAllByUserAndDeletedAtIsNull(user).stream()
             .map(Memory::getContent)
             .toList();
     }
@@ -30,16 +33,27 @@ public class MemoryService {
     @Transactional
     public void saveNewMemory(User user, List<String> extractedMemories){
         if (extractedMemories != null && !extractedMemories.isEmpty()){
+            List<Memory> existingMemories = memoryRepository.findAllByUserAndDeletedAtIsNull(user);
+            Set<String> existingMemoryContents = existingMemories.stream()
+                    .map(m -> m.getContent().trim())
+                    .collect(Collectors.toSet());
+
             for (String memory : extractedMemories){
                 if (memory != null && !memory.trim().isEmpty()){
-                    Memory newMemory = new Memory();
-                    newMemory.setUser(user);
-                    newMemory.setContent(memory);
-                    memoryRepository.save(newMemory);
-                    System.out.println("user의 새로운 메모리 저장 완료" + memory);
+                    String cleanMemory = memory.trim();
+
+                    if (!existingMemoryContents.contains(cleanMemory)){
+                        Memory newMemory = new Memory();
+                        newMemory.setUser(user);
+                        newMemory.setContent(cleanMemory);
+                        memoryRepository.save(newMemory);
+                        System.out.println("user의 새로운 메모리 저장 완료" + memory);
+                    }
+                    else{
+                        System.out.print("이미 있는 메모리입니다.");
+                    }
                 }
             }
-
         }
     }
 
