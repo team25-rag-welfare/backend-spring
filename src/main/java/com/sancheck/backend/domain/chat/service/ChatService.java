@@ -204,4 +204,15 @@ public class ChatService {
                         .build())
                 .collect(Collectors.toList());
     }
+    // 전체 대화 삭제
+    public void deleteAllChats(Long userId) {
+        chatMessageRepository.deleteByUserId(userId);
+    }
+
+    // 날짜별 대화 삭제
+    public void deleteChatByDate(Long userId, LocalDate targetDate) {
+        LocalDateTime startOfDay = targetDate.atStartOfDay();
+        LocalDateTime endOfDay = targetDate.atTime(23, 59, 59);
+        chatMessageRepository.deleteByUserIdAndCreatedAtBetween(userId, startOfDay, endOfDay);
+    }
 }
