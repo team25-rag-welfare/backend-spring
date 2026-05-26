@@ -15,7 +15,7 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
     List<ChatMessage> findByUserIdOrderByCreatedAtAsc(Long userId);
 
     void deleteByUserId(Long userId);
-
+    void deleteByUserIdAndCreatedAtBetween(Long userId, LocalDateTime start, LocalDateTime end);
     //키워드 검색 (대소문자 무시)
     Page<ChatMessage> findByUserIdAndContentContainingIgnoreCase(Long userId, String keyword, Pageable pageable);
 

@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 @RestController
 @RequestMapping("/api/v2/chats")
@@ -90,5 +91,25 @@ public class ChatController {
 
         Long userId = userDetails.getUser().getId();
         return ResponseEntity.ok(chatService.regenerateChat(userId, chatId));
+    }
+
+    // 전체 대화 삭제
+    @DeleteMapping("")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteAllChats(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = userDetails.getUser().getId();
+        chatService.deleteAllChats(userId);
+        return ResponseEntity.ok().build();
+    }
+
+    // 날짜별 대화 삭제
+    @DeleteMapping("/date")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteChatByDate(
+        @AuthenticationPrincipal CustomUserDetails userDetails,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate targetDate) {
+        Long userId = userDetails.getUser().getId();
+        chatService.deleteChatByDate(userId, targetDate);
+        return ResponseEntity.ok().build();
     }
 }
