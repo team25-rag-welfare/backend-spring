@@ -12,7 +12,7 @@ import com.sancheck.backend.domain.user.entity.User;
 import com.sancheck.backend.domain.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -44,12 +44,55 @@ public class ChatService {
         return content;
     }
 
+    //user와 assistant의 과거 2개 채팅만 가져오기
+    private List<Map<String, String>> getRecentChats(User user){
+        List<ChatMessage> recentChats = chatMessageRepository.findTop2ByUserIdOrderByCreatedAtDesc(user.getId());
+
+        //ai가 시간 순서로 읽기 편하게 reverse
+        Collections.reverse(recentChats);
+
+        List<Map<String, String>> chatHistoryStr = new ArrayList<>();
+
+        if (recentChats.size() == 2){
+            String firstSender = recentChats.get(0).getSenderType();
+            String secondSender = recentChats.get(1).getSenderType();
+
+            if (firstSender.equals(secondSender)){
+                return chatHistoryStr;
+            }
+            else{
+                for (ChatMessage msg : recentChats){
+                    Map<String, String> historyMap = new HashMap<>();
+
+                    String role = msg.getSenderType().equals("USER") ? "human" : "assistant";
+
+                    historyMap.put("role", role);
+                    historyMap.put("content", msg.getContent());
+                    chatHistoryStr.add(historyMap);
+                }
+            }
+        }
+        else if (recentChats.size() == 1) {
+            Map<String, String> historyMap = new HashMap<>();
+
+            String role = recentChats.get(0).getSenderType().equals("USER") ? "human" : "assistant";
+
+            historyMap.put("role", role);
+            historyMap.put("content", recentChats.get(0).getContent());
+            chatHistoryStr.add(historyMap);
+        }
+
+        return chatHistoryStr;
+    }
+
     public ChatResponseDto processRagChat(Long userId, ChatRequestDto request) {
 
         //1. MySQL에서 질문한 유저 정보 꺼내오기
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("user를 찾을 수 없습니다."));
         System.out.println("질문자 정보를 확인 : " + user.getId() + "님 입니다.");
+
+        List<Map<String, String>> recentChats = getRecentChats(user);
 
         //2. User의 민감한 정보 마스킹
         String safeContent = maskSensitiveInfo(request.getContent());
@@ -68,8 +111,9 @@ public class ChatService {
         List<String> memoryList = memoryService.getMemoryContents(user);
         System.out.println("기존의 사용자 메모리 긁어오는데 성공" + memoryList);
 
+
         //5. User 질문 POST 및 ai 답변 받아오고 새로운 메모리 받아오기 (메모리가 있다면)
-        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(user, memoryList, safeContent);
+        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(user, memoryList, safeContent, recentChats);
         List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
         List<String> extractedNewMemories = aiAnswerMemories.newMemories();
 
@@ -192,7 +236,17 @@ public class ChatService {
 
     private String toAiContent(List<AiResponseDto.PolicyAnswer> policies) {
         return policies.stream()
-                .map(p -> "[" + p.policyName() + "]\n" + p.content())
+                .map(p -> {
+                    String name = p.policyName();
+
+                    //PokicyName이 null 아닐때만
+                    if (name != null && !"null".equals(name) && !name.trim().isEmpty()) {
+                        return "[" + name + "]\n" + p.content();
+                    } else {
+                        // 제목이 없거나 null이면 내용만 깔끔하게 반환
+                        return p.content();
+                    }
+                })
                 .collect(Collectors.joining("\n\n"));
     }
 

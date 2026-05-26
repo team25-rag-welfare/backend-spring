@@ -27,12 +27,13 @@ public class AiClientService {
         this.webClient = WebClient.builder().baseUrl(aiServerUrl).build();
     }
 
-    public AiResponseDto getAiResponse(User user, List<String> memory, String userMessage) {
+    public AiResponseDto getAiResponse(User user, List<String> memory, String userMessage, List<Map<String, String>> recentChats) {
         //1. 데이터 포장
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("user_info", buildUserInfo(user));
         requestBody.put("memory", memory);
         requestBody.put("user_message", userMessage);
+        requestBody.put("recent_chats", recentChats);
 
         return webClient.post()
                 .uri("/api/v2/ai/chat")
