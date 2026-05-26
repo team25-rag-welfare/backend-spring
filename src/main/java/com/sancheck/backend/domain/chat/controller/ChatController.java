@@ -44,6 +44,11 @@ public class ChatController {
 
     }
 
+    @PostMapping("/guest")
+    public ResponseEntity<ChatResponseDto> sendForGuest(@RequestBody ChatRequestDto request){
+        return ResponseEntity.ok(chatService.processGuestChat(request));
+    }
+
     @GetMapping("/history")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ChatHistoryDto>> getChatHistory(@AuthenticationPrincipal CustomUserDetails userDetails) {
