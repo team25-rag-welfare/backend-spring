@@ -13,6 +13,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class ChatRequestDto {
     private String content; // User가 입력한것
+    private String currentPolicy;
 
     //비회원 전용
     @Builder.Default
