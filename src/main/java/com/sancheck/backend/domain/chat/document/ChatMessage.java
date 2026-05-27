@@ -25,6 +25,21 @@ public class ChatMessage {
     @Field("policy_name")
     private String policyName;
 
+    @Field("response_type")
+    private String responseType;
+
+    @Field("pending_clarification")
+    private Boolean pendingClarification;
+
+    @Field("original_question")
+    private String originalQuestion;
+
+    @Field("clarification_question")
+    private String clarificationQuestion;
+
+    @Field("missing_fields")
+    private java.util.List<String> missingFields;
+
     @Field("is_regenerated")
     private boolean isRegenerated;
 
