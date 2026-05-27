@@ -14,4 +14,6 @@ public interface MemoryRepository extends JpaRepository<Memory, Long> {
     @Modifying
     @Query("UPDATE Memory m SET m.deletedAt = CURRENT_TIMESTAMP WHERE m.user = :user AND m.deletedAt IS NULL")
     void softDeleteAllByUser(@Param("user") User user);
+
+    List<Memory> findAllByUserAndDeletedAtIsNull(User user);
 }
