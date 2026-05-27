@@ -31,4 +31,7 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
 
     Optional<ChatMessage> findTopByUserIdAndSenderTypeAndPolicyNameNotNullOrderByCreatedAtDesc(
             Long userId, String senderType);
+
+    Optional<ChatMessage> findTopByUserIdAndSenderTypeAndPendingClarificationTrueOrderByCreatedAtDesc(
+            Long userId, String senderType);
 }
