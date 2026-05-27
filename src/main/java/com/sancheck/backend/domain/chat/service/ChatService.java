@@ -12,7 +12,7 @@ import com.sancheck.backend.domain.user.entity.User;
 import com.sancheck.backend.domain.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -44,12 +44,55 @@ public class ChatService {
         return content;
     }
 
+    //user와 assistant의 과거 2개 채팅만 가져오기
+    private List<Map<String, String>> getRecentChats(User user){
+        List<ChatMessage> recentChats = chatMessageRepository.findTop2ByUserIdOrderByCreatedAtDesc(user.getId());
+
+        //ai가 시간 순서로 읽기 편하게 reverse
+        Collections.reverse(recentChats);
+
+        List<Map<String, String>> chatHistoryStr = new ArrayList<>();
+
+        if (recentChats.size() == 2){
+            String firstSender = recentChats.get(0).getSenderType();
+            String secondSender = recentChats.get(1).getSenderType();
+
+            if (firstSender.equals(secondSender)){
+                return chatHistoryStr;
+            }
+            else{
+                for (ChatMessage msg : recentChats){
+                    Map<String, String> historyMap = new HashMap<>();
+
+                    String role = msg.getSenderType().equals("USER") ? "human" : "assistant";
+
+                    historyMap.put("role", role);
+                    historyMap.put("content", msg.getContent());
+                    chatHistoryStr.add(historyMap);
+                }
+            }
+        }
+        else if (recentChats.size() == 1) {
+            Map<String, String> historyMap = new HashMap<>();
+
+            String role = recentChats.get(0).getSenderType().equals("USER") ? "human" : "assistant";
+
+            historyMap.put("role", role);
+            historyMap.put("content", recentChats.get(0).getContent());
+            chatHistoryStr.add(historyMap);
+        }
+
+        return chatHistoryStr;
+    }
+
     public ChatResponseDto processRagChat(Long userId, ChatRequestDto request) {
 
         //1. MySQL에서 질문한 유저 정보 꺼내오기
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("user를 찾을 수 없습니다."));
         System.out.println("질문자 정보를 확인 : " + user.getId() + "님 입니다.");
+
+        List<Map<String, String>> recentChats = getRecentChats(user);
 
         //2. User의 민감한 정보 마스킹
         String safeContent = maskSensitiveInfo(request.getContent());
@@ -68,8 +111,9 @@ public class ChatService {
         List<String> memoryList = memoryService.getMemoryContents(user);
         System.out.println("기존의 사용자 메모리 긁어오는데 성공" + memoryList);
 
+
         //5. User 질문 POST 및 ai 답변 받아오고 새로운 메모리 받아오기 (메모리가 있다면)
-        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(user, memoryList, safeContent);
+        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(user, memoryList, safeContent, recentChats);
         List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
         List<String> extractedNewMemories = aiAnswerMemories.newMemories();
 
@@ -77,10 +121,7 @@ public class ChatService {
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setUserId(userId);
         aiMsg.setSenderType("ASSISTANT");
-        String aiContent = policies.stream()
-                .map(p -> "[" + p.policyName() + "]\n" + p.content())
-                .collect(Collectors.joining("\n\n"));
-        aiMsg.setContent(aiContent);
+        aiMsg.setContent(toAiContent(policies));
         aiMsg.setDeleted(false);
         aiMsg.setRegenerated(false);
         chatMessageRepository.save(aiMsg);
@@ -89,19 +130,28 @@ public class ChatService {
         //7. ai 서버에서 새로운 메모리를 보냈다면?
         memoryService.saveNewMemory(user, extractedNewMemories);
 
-        //8. 프론트엔드로 저장물 던지기
-        List<ChatResponseDto.PolicyAnswer> responsePolicies = policies.stream()
-                .map(p -> ChatResponseDto.PolicyAnswer.builder()
-                        .policyName(p.policyName())
-                        .content(p.content())
-                        .build())
-                .collect(Collectors.toList());
-
         return ChatResponseDto.builder()
-                .policies(responsePolicies)
+                .messageId(aiMsg.getId())
+                .policies(toResponsePolicies(policies))
                 .senderType("ASSISTANT")
                 .build();
 
+    }
+
+    //비회원 채팅
+    public ChatResponseDto processGuestChat(ChatRequestDto request){
+
+        //비회원이므로 신원조회 및 질문 저장 전부 패스
+        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(null,
+                new ArrayList<>(),
+                request.getContent(),
+                request.getChatHistory());
+        List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
+        return ChatResponseDto.builder()
+                .messageId(UUID.randomUUID().toString())
+                .policies(toResponsePolicies(policies))
+                .senderType("ASSISTANT")
+                .build();
     }
 
     //채팅 내역 조회 메서드
@@ -122,6 +172,7 @@ public class ChatService {
                         .senderType(msg.getSenderType())
                         .content(msg.getContent())
                         .createdAt(msg.getCreatedAt())
+                        .id(msg.getId())
                         .build())
                 .toList();
     }
@@ -159,5 +210,79 @@ public class ChatService {
                         .createdAt(msg.getCreatedAt())
                         .build());
 
+    }
+
+    public ChatResponseDto regenerateChat(Long userId, String chatId) {
+
+        // 1. chatId로 AI 메시지 조회
+        ChatMessage aiMsg = chatMessageRepository.findById(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("메시지를 찾을 수 없습니다."));
+
+        // 2. 직전 USER 메시지 조회
+        ChatMessage userMsg = chatMessageRepository
+                .findTopByUserIdAndSenderTypeAndIdLessThanOrderByIdDesc(userId, "USER", chatId)
+                .orElseThrow(() -> new IllegalArgumentException("이전 유저 메시지를 찾을 수 없습니다."));
+
+        // 3. 유저 정보 + 메모리 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("user를 찾을 수 없습니다."));
+        List<String> memoryList = memoryService.getMemoryContents(user);
+
+        // 4. AI 재생성 요청
+        AiResponseDto aiAnswerMemories = aiClientService.regenerateAiResponse(
+                user, memoryList, userMsg.getContent(), aiMsg.getContent());
+
+        List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
+        List<String> extractedNewMemories = aiAnswerMemories.newMemories();
+
+        // 5. 기존 AI 메시지 content 교체 + regenerated = true 저장
+        aiMsg.setContent(toAiContent(policies));
+        aiMsg.setRegenerated(true);
+        chatMessageRepository.save(aiMsg);
+
+        // 6. 새 메모리 저장
+        memoryService.saveNewMemory(user, extractedNewMemories);
+
+        return ChatResponseDto.builder()
+                .messageId(aiMsg.getId())
+                .policies(toResponsePolicies(policies))
+                .senderType("ASSISTANT")
+                .build();
+    }
+
+    private String toAiContent(List<AiResponseDto.PolicyAnswer> policies) {
+        return policies.stream()
+                .map(p -> {
+                    String name = p.policyName();
+
+                    //PokicyName이 null 아닐때만
+                    if (name != null && !"null".equals(name) && !name.trim().isEmpty()) {
+                        return "[" + name + "]\n" + p.content();
+                    } else {
+                        // 제목이 없거나 null이면 내용만 깔끔하게 반환
+                        return p.content();
+                    }
+                })
+                .collect(Collectors.joining("\n\n"));
+    }
+
+    private List<ChatResponseDto.PolicyAnswer> toResponsePolicies(List<AiResponseDto.PolicyAnswer> policies) {
+        return policies.stream()
+                .map(p -> ChatResponseDto.PolicyAnswer.builder()
+                        .policyName(p.policyName())
+                        .content(p.content())
+                        .build())
+                .collect(Collectors.toList());
+    }
+    // 전체 대화 삭제
+    public void deleteAllChats(Long userId) {
+        chatMessageRepository.deleteByUserId(userId);
+    }
+
+    // 날짜별 대화 삭제
+    public void deleteChatByDate(Long userId, LocalDate targetDate) {
+        LocalDateTime startOfDay = targetDate.atStartOfDay();
+        LocalDateTime endOfDay = targetDate.atTime(23, 59, 59);
+        chatMessageRepository.deleteByUserIdAndCreatedAtBetween(userId, startOfDay, endOfDay);
     }
 }

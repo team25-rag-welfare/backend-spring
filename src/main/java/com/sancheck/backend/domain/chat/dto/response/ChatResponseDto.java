@@ -13,6 +13,7 @@ public class ChatResponseDto {
     private List<PolicyAnswer> policies;
     private String senderType; //누가 보냈나
     private String createdAt;
+    private String messageId;
 
     @Getter
     @Builder
