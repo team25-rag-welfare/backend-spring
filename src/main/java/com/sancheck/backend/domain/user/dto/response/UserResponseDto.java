@@ -20,6 +20,7 @@ public class UserResponseDto {
   private Integer infantMonths;
   private Integer incomeLevel;
   private Boolean isHomeless;
+  private String profileImageUrl;
 
 
   public UserResponseDto(User user) {
@@ -35,6 +36,7 @@ public class UserResponseDto {
     this.infantMonths = user.getInfantMonths();
     this.incomeLevel = user.getIncomeLevel();
     this.isHomeless = user.getIsHomeless();
+    this.profileImageUrl = user.getProfileImageUrl();
     if (user.getDueDate() != null) {
       long daysUntilDue = ChronoUnit.DAYS.between(LocalDate.now(), user.getDueDate());
       this.pregnancyWeeks = (int) ((280 - daysUntilDue) / 7);

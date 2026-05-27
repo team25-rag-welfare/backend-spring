@@ -55,4 +55,15 @@ public class UserController {
     userService.deleteUser(userId);
     return ResponseEntity.ok().build();
   }
+
+  // 프로필 이미지 등록 및 수정
+  @PostMapping(value = "/image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PreAuthorize("isAuthenticated()")
+  public ResponseEntity<String> updateProfileImage(
+      Authentication authentication,
+      @RequestPart("file") org.springframework.web.multipart.MultipartFile file) {
+    Long userId = Long.parseLong(authentication.getName());
+    String imageUrl = userService.updateProfileImage(userId, file);
+    return ResponseEntity.ok(imageUrl);
+  }
 }
