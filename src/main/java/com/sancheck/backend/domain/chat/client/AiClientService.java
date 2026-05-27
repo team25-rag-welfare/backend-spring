@@ -29,13 +29,15 @@ public class AiClientService {
         this.webClient = WebClient.builder().baseUrl(aiServerUrl).build();
     }
 
-    public AiResponseDto getAiResponse(User user, List<String> memory, String userMessage, List<Map<String, String>> recentChats) {
+    public AiResponseDto getAiResponse(User user, List<String> memory, String userMessage,
+            List<Map<String, String>> recentChats, String currentPolicy) {
         //1. 데이터 포장
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("user_info", buildUserInfo(user));
         requestBody.put("memory", memory);
         requestBody.put("user_message", userMessage);
         requestBody.put("chat_history", recentChats != null ? recentChats : new ArrayList<>());
+        requestBody.put("current_policy", currentPolicy);
 
         try{
             return webClient.post()
@@ -55,13 +57,14 @@ public class AiClientService {
     }
 
     public AiResponseDto regenerateAiResponse(User user, List<String> memory, String userMessage,
-            String previousResponse) {
+            String previousResponse, String currentPolicy) {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("user_info", buildUserInfo(user));
         requestBody.put("memory", memory);
         requestBody.put("user_message", userMessage);
         requestBody.put("regenerate", true);
         requestBody.put("previous_response", previousResponse);
+        requestBody.put("current_policy", currentPolicy);
 
         return webClient.post()
                 .uri("/api/v2/ai/chat")
