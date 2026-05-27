@@ -23,6 +23,9 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ChatService {
 
+    private static final String RESPONSE_TYPE_POLICY_ANSWER = "policy_answer";
+    private static final String RESPONSE_TYPE_CLARIFICATION = "clarification";
+
     private final UserRepository userRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final MemoryService memoryService;
@@ -93,6 +96,11 @@ public class ChatService {
                 .orElse(null);
     }
 
+    private Optional<ChatMessage> getPendingClarification(Long userId) {
+        return chatMessageRepository
+                .findTopByUserIdAndSenderTypeAndPendingClarificationTrueOrderByCreatedAtDesc(userId, "ASSISTANT");
+    }
+
     private String extractCurrentPolicy(List<AiResponseDto.PolicyAnswer> policies) {
         if (policies == null) {
             return null;
@@ -104,6 +112,33 @@ public class ChatService {
                 .orElse(null);
     }
 
+    private boolean isClarification(AiResponseDto response) {
+        return RESPONSE_TYPE_CLARIFICATION.equals(response.responseType());
+    }
+
+    private String getResponseType(AiResponseDto response) {
+        return response.responseType() != null ? response.responseType() : RESPONSE_TYPE_POLICY_ANSWER;
+    }
+
+    private String buildClarificationContent(AiResponseDto response) {
+        return response.clarificationQuestion() != null && !response.clarificationQuestion().trim().isEmpty()
+                ? response.clarificationQuestion()
+                : "정확한 안내를 위해 필요한 정보를 조금 더 알려주세요.";
+    }
+
+    private String buildAiQuestion(String safeContent, Optional<ChatMessage> pendingClarification) {
+        return pendingClarification
+                .map(pending -> pending.getOriginalQuestion() + "\n\n추가 조건: " + safeContent)
+                .orElse(safeContent);
+    }
+
+    private void clearPendingClarification(Optional<ChatMessage> pendingClarification) {
+        pendingClarification.ifPresent(pending -> {
+            pending.setPendingClarification(false);
+            chatMessageRepository.save(pending);
+        });
+    }
+
     public ChatResponseDto processRagChat(Long userId, ChatRequestDto request) {
 
         //1. MySQL에서 질문한 유저 정보 꺼내오기
@@ -113,9 +148,14 @@ public class ChatService {
 
         List<Map<String, String>> recentChats = getRecentChats(user);
         String currentPolicy = getCurrentPolicy(userId);
+        Optional<ChatMessage> pendingClarification = getPendingClarification(userId);
 
         //2. User의 민감한 정보 마스킹
         String safeContent = maskSensitiveInfo(request.getContent());
+        String aiQuestion = buildAiQuestion(safeContent, pendingClarification);
+        if (pendingClarification.isPresent() && pendingClarification.get().getPolicyName() != null) {
+            currentPolicy = pendingClarification.get().getPolicyName();
+        }
 
         //3. User 질문을 MongoDB에 저장
         ChatMessage userMsg = new ChatMessage();
@@ -133,29 +173,45 @@ public class ChatService {
 
 
         //5. User 질문 POST 및 ai 답변 받아오고 새로운 메모리 받아오기 (메모리가 있다면)
-        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(user, memoryList, safeContent, recentChats,
+        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(user, memoryList, aiQuestion, recentChats,
                 currentPolicy);
         List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
         List<String> extractedNewMemories = aiAnswerMemories.newMemories();
         String nextPolicy = extractCurrentPolicy(policies);
+        String responseType = getResponseType(aiAnswerMemories);
 
         //6. ai의 답변을 mongoDB에 저장
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setUserId(userId);
         aiMsg.setSenderType("ASSISTANT");
-        aiMsg.setContent(toAiContent(policies));
-        aiMsg.setPolicyName(nextPolicy);
+        aiMsg.setResponseType(responseType);
+        aiMsg.setContent(isClarification(aiAnswerMemories) ? buildClarificationContent(aiAnswerMemories) : toAiContent(policies));
+        aiMsg.setPolicyName(isClarification(aiAnswerMemories) ? currentPolicy : nextPolicy);
+        aiMsg.setPendingClarification(isClarification(aiAnswerMemories));
+        aiMsg.setOriginalQuestion(isClarification(aiAnswerMemories)
+                ? pendingClarification.map(ChatMessage::getOriginalQuestion).orElse(safeContent)
+                : null);
+        aiMsg.setClarificationQuestion(isClarification(aiAnswerMemories) ? aiAnswerMemories.clarificationQuestion() : null);
+        aiMsg.setMissingFields(isClarification(aiAnswerMemories) ? aiAnswerMemories.missingFields() : null);
         aiMsg.setDeleted(false);
         aiMsg.setRegenerated(false);
         chatMessageRepository.save(aiMsg);
+        if (!isClarification(aiAnswerMemories) || pendingClarification.isPresent()) {
+            clearPendingClarification(pendingClarification);
+        }
         System.out.println("ai 답변 저장 완료");
 
         //7. ai 서버에서 새로운 메모리를 보냈다면?
-        memoryService.saveNewMemory(user, extractedNewMemories);
+        if (!isClarification(aiAnswerMemories)) {
+            memoryService.saveNewMemory(user, extractedNewMemories);
+        }
 
         return ChatResponseDto.builder()
                 .messageId(aiMsg.getId())
                 .policies(toResponsePolicies(policies))
+                .responseType(responseType)
+                .clarificationQuestion(aiAnswerMemories.clarificationQuestion())
+                .missingFields(aiAnswerMemories.missingFields())
                 .senderType("ASSISTANT")
                 .build();
 
@@ -174,6 +230,9 @@ public class ChatService {
         return ChatResponseDto.builder()
                 .messageId(UUID.randomUUID().toString())
                 .policies(toResponsePolicies(policies))
+                .responseType(getResponseType(aiAnswerMemories))
+                .clarificationQuestion(aiAnswerMemories.clarificationQuestion())
+                .missingFields(aiAnswerMemories.missingFields())
                 .senderType("ASSISTANT")
                 .build();
     }
@@ -241,6 +300,9 @@ public class ChatService {
         // 1. chatId로 AI 메시지 조회
         ChatMessage aiMsg = chatMessageRepository.findById(chatId)
                 .orElseThrow(() -> new IllegalArgumentException("메시지를 찾을 수 없습니다."));
+        if (RESPONSE_TYPE_CLARIFICATION.equals(aiMsg.getResponseType())) {
+            throw new IllegalArgumentException("조건 확인 질문은 재생성할 수 없습니다.");
+        }
 
         // 2. 직전 USER 메시지 조회
         ChatMessage userMsg = chatMessageRepository
@@ -264,6 +326,7 @@ public class ChatService {
         // 5. 기존 AI 메시지 content 교체 + regenerated = true 저장
         aiMsg.setContent(toAiContent(policies));
         aiMsg.setPolicyName(nextPolicy);
+        aiMsg.setResponseType(getResponseType(aiAnswerMemories));
         aiMsg.setRegenerated(true);
         chatMessageRepository.save(aiMsg);
 
@@ -273,11 +336,17 @@ public class ChatService {
         return ChatResponseDto.builder()
                 .messageId(aiMsg.getId())
                 .policies(toResponsePolicies(policies))
+                .responseType(getResponseType(aiAnswerMemories))
+                .clarificationQuestion(aiAnswerMemories.clarificationQuestion())
+                .missingFields(aiAnswerMemories.missingFields())
                 .senderType("ASSISTANT")
                 .build();
     }
 
     private String toAiContent(List<AiResponseDto.PolicyAnswer> policies) {
+        if (policies == null || policies.isEmpty()) {
+            return "";
+        }
         return policies.stream()
                 .map(p -> {
                     String name = p.policyName();
@@ -294,6 +363,9 @@ public class ChatService {
     }
 
     private List<ChatResponseDto.PolicyAnswer> toResponsePolicies(List<AiResponseDto.PolicyAnswer> policies) {
+        if (policies == null || policies.isEmpty()) {
+            return List.of();
+        }
         return policies.stream()
                 .map(p -> ChatResponseDto.PolicyAnswer.builder()
                         .policyName(p.policyName())
