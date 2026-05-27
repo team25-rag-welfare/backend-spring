@@ -76,14 +76,17 @@ public class User extends BaseEntity {
     @Column
     private Boolean isHomeless; // 무주택 여부
 
+    @Column
+    private String profileImageUrl; // 프로필 이미지 URL
+
     @Builder
     public User(Long kakaoId, String email, String nickname,
         String userName, Integer userAge, String pregnancyStatus,
         String district, Integer childCount, Boolean isDeleted,
         LocalDateTime termsAgreedAt, LocalDateTime createdAt,
         Boolean isMultibirth, Boolean isForeigner, LocalDateTime deletedAt,
-        Integer residenceMonths,LocalDate dueDate, Integer infantMonths,
-        Integer incomeLevel, Boolean isHomeless) {
+        Integer residenceMonths, LocalDate dueDate, Integer infantMonths,
+        Integer incomeLevel, Boolean isHomeless, String profileImageUrl) {
         this.kakaoId = kakaoId;
         this.email = email;
         this.nickname = nickname;
@@ -102,6 +105,7 @@ public class User extends BaseEntity {
         this.infantMonths = infantMonths;
         this.incomeLevel = incomeLevel;
         this.isHomeless = isHomeless;
+        this.profileImageUrl = profileImageUrl;
     }
 
     public void updateProfile(UserRequestDto request) {
@@ -152,5 +156,10 @@ public class User extends BaseEntity {
         this.infantMonths = null;
         this.incomeLevel = null;
         this.isHomeless = null;
+        this.profileImageUrl = null;
+    }
+
+    public void updateProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 }
