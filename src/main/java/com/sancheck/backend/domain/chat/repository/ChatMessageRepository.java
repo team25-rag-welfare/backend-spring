@@ -28,4 +28,7 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
 
     //가장 최근 대화 2개
     List<ChatMessage> findTop2ByUserIdOrderByCreatedAtDesc(Long userId);
+
+    Optional<ChatMessage> findTopByUserIdAndSenderTypeAndPolicyNameNotNullOrderByCreatedAtDesc(
+            Long userId, String senderType);
 }
