@@ -85,6 +85,25 @@ public class ChatService {
         return chatHistoryStr;
     }
 
+    private String getCurrentPolicy(Long userId) {
+        return chatMessageRepository
+                .findTopByUserIdAndSenderTypeAndPolicyNameNotNullOrderByCreatedAtDesc(userId, "ASSISTANT")
+                .map(ChatMessage::getPolicyName)
+                .filter(name -> !name.trim().isEmpty())
+                .orElse(null);
+    }
+
+    private String extractCurrentPolicy(List<AiResponseDto.PolicyAnswer> policies) {
+        if (policies == null) {
+            return null;
+        }
+        return policies.stream()
+                .map(AiResponseDto.PolicyAnswer::policyName)
+                .filter(name -> name != null && !name.trim().isEmpty())
+                .findFirst()
+                .orElse(null);
+    }
+
     public ChatResponseDto processRagChat(Long userId, ChatRequestDto request) {
 
         //1. MySQL에서 질문한 유저 정보 꺼내오기
@@ -93,6 +112,7 @@ public class ChatService {
         System.out.println("질문자 정보를 확인 : " + user.getId() + "님 입니다.");
 
         List<Map<String, String>> recentChats = getRecentChats(user);
+        String currentPolicy = getCurrentPolicy(userId);
 
         //2. User의 민감한 정보 마스킹
         String safeContent = maskSensitiveInfo(request.getContent());
@@ -113,15 +133,18 @@ public class ChatService {
 
 
         //5. User 질문 POST 및 ai 답변 받아오고 새로운 메모리 받아오기 (메모리가 있다면)
-        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(user, memoryList, safeContent, recentChats);
+        AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(user, memoryList, safeContent, recentChats,
+                currentPolicy);
         List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
         List<String> extractedNewMemories = aiAnswerMemories.newMemories();
+        String nextPolicy = extractCurrentPolicy(policies);
 
         //6. ai의 답변을 mongoDB에 저장
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setUserId(userId);
         aiMsg.setSenderType("ASSISTANT");
         aiMsg.setContent(toAiContent(policies));
+        aiMsg.setPolicyName(nextPolicy);
         aiMsg.setDeleted(false);
         aiMsg.setRegenerated(false);
         chatMessageRepository.save(aiMsg);
@@ -145,7 +168,8 @@ public class ChatService {
         AiResponseDto aiAnswerMemories = aiClientService.getAiResponse(null,
                 new ArrayList<>(),
                 request.getContent(),
-                request.getChatHistory());
+                request.getChatHistory(),
+                request.getCurrentPolicy());
         List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
         return ChatResponseDto.builder()
                 .messageId(UUID.randomUUID().toString())
@@ -227,16 +251,19 @@ public class ChatService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("user를 찾을 수 없습니다."));
         List<String> memoryList = memoryService.getMemoryContents(user);
+        String currentPolicy = aiMsg.getPolicyName() != null ? aiMsg.getPolicyName() : getCurrentPolicy(userId);
 
         // 4. AI 재생성 요청
         AiResponseDto aiAnswerMemories = aiClientService.regenerateAiResponse(
-                user, memoryList, userMsg.getContent(), aiMsg.getContent());
+                user, memoryList, userMsg.getContent(), aiMsg.getContent(), currentPolicy);
 
         List<AiResponseDto.PolicyAnswer> policies = aiAnswerMemories.policies();
         List<String> extractedNewMemories = aiAnswerMemories.newMemories();
+        String nextPolicy = extractCurrentPolicy(policies);
 
         // 5. 기존 AI 메시지 content 교체 + regenerated = true 저장
         aiMsg.setContent(toAiContent(policies));
+        aiMsg.setPolicyName(nextPolicy);
         aiMsg.setRegenerated(true);
         chatMessageRepository.save(aiMsg);
 
