@@ -3,7 +3,6 @@ package com.sancheck.backend.domain.chat.document;
 import java.time.LocalDateTime;
 import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
@@ -22,6 +21,9 @@ public class ChatMessage {
     private String senderType;
 
     private String content;
+
+    @Field("policy_name")
+    private String policyName;
 
     @Field("is_regenerated")
     private boolean isRegenerated;
